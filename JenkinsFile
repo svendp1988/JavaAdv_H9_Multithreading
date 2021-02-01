@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+    stages {
+        stage('opdracht 5') {
+            steps {
+                echo "good luck..."
+            }
+        }
+        stage('checkout code') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: '*/master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: '19374bb6-baf8-4239-979d-617e50193b56', url: 'https://github.com/svendp1988/2TIN-DevOps-Calculator.git']]])
+            }
+        }
+        stage('install dependencies') {
+            steps {
+                    sh 'composer install'
+            }
+        }
+        stage('unittest') {
+            steps {
+                    sh 'composer dump-autoload'
+                    sh './vendor/bin/phpunit tests --log-junit target/reports/report.xml'
+                    junit 'target/reports/report.xml'
+            }
+        }
+        stage('create bundle') {
+            steps {
+                sh 'mkdir lib'
+                zip dir: 'lib', glob: 'assets/**, composer.*, dockerfile, index.php, src/** vendor/**', zipFile: 'bundle'
+            }
+        }
+        stage('archive') {
+            steps {
+      archiveArtifacts artifacts: 'bundle', followSymlinks: false, onlyIfSuccessful: true
+            }
+        }
+
+    }
+    post {
+    always {
+      cleanWs()
+    }
+failure {
+
+   dir('/var/lib/jenkins/logs') {
+        script {
+            def file = "jenkinserrorlog"
+            def current = ""
+            if (fileExists(file)) {
+            current = readFile file
+            }
+                def date = new Date()
+                def data = "build failed on: " + date
+                writeFile(file: file, text: current + "\n" + data)
+            }
+       }
+}
+}
+}
